@@ -1,32 +1,45 @@
 import os
 import cv2
 import json
+import numpy as np
 import pandas as pd
+
+from datetime import datetime
+
+TEST_IMAGES_PATH = 'datasets/innopolis-high-voltage-challenge'
+PREDICTIONS_PATH = 'training_results/train/predictions.json'
+CONF_THR = 0.05
 
 
 def draw_from_json():
-    f = open('predictions.json')
+    f = open(PREDICTIONS_PATH)
     data = json.load(f)
 
     img_to_bboxes = {img: [] for img in images_list}
     for elem in data:
-        try:
-            img_name = elem['image_id'].split('.')[0][:-4] + '.JPG'
-        except KeyError:
-            img_name = elem['image_id'] + '.JPG'
+        if '_jpg' in elem['image_id']:
+            img_name = elem['image_id'].split('_jpg')[0].replace('_JPG', '.JPG')
+        elif '.rf' in elem['image_id']:
+            img_name = elem['image_id'].split('.')[0].replace('_JPG', '.JPG')
+        else:
+            raise Exception
+        # try:
+            # elem['image_id'].rsplit('_')#[0][:-4]  # + '.JPG'
+        # except KeyError:
+        #     img_name = elem['image_id']  # + '.JPG'
         img_to_bboxes[img_name].append({'bbox': elem['bbox'], 'score': elem['score']})
 
     i = 0
     df_file_name, df_x, df_y, df_w, df_h, df_probability = [], [], [], [], [], []
     for k, v in img_to_bboxes.items():
         if v:
-            img_full_name = os.path.join(images_path, k)
+            img_full_name = os.path.join(TEST_IMAGES_PATH, k)
             img = cv2.imread(img_full_name)
             img_h, img_w, _ = img.shape
             box_num = 1
             for elem in v:
                 score = elem['score']
-                if score >= 0.7:
+                if score >= CONF_THR:
                     x1, y1, w, h = tuple(elem['bbox'])
                     x2, y2 = x1 + w, y1 + h
 
@@ -36,7 +49,6 @@ def draw_from_json():
                     df_w.append(w / img_w)
                     df_h.append(h / img_h)
                     df_probability.append(score)
-
                     box_num += 1
 
                     x1, y1, x2, y2 = int(round(x1)), int(round(y1)), int(round(x2)), int(round(y2))
@@ -46,12 +58,14 @@ def draw_from_json():
             i += 1
 
     df = pd.DataFrame()
-    df['file_name'] = df_file_name
-    df['x'] = df_x
-    df['y'] = df_y
-    df['w'] = df_w
-    df['h'] = df_h
-    df['probability'] = df_probability
+
+    sorted_ids = np.argsort(df_file_name)
+    df['file_name'] = np.asarray(df_file_name)[sorted_ids]
+    df['x'] = np.asarray(df_x)[sorted_ids]
+    df['y'] = np.asarray(df_y)[sorted_ids]
+    df['w'] = np.asarray(df_w)[sorted_ids]
+    df['h'] = np.asarray(df_h)[sorted_ids]
+    df['probability'] = np.asarray(df_probability)[sorted_ids]
     df.to_csv(os.path.join(write_dir, 'tweet_tweet_submission_v1.csv'), index=False)
 
 
@@ -62,7 +76,7 @@ def draw_from_csv():
 
     i = 0
     for img_path in images_list:
-        img = cv2.imread(os.path.join(images_path, img_path))
+        img = cv2.imread(os.path.join(TEST_IMAGES_PATH, img_path))
         img_name = img_path[:-4]
         for bb_filename in bboxes_file_name:
             if img_name in bb_filename:
@@ -80,10 +94,9 @@ def draw_from_csv():
 
 
 if __name__ == '__main__':
-    images_path = 'datasets/innopolis-high-voltage-challenge'
-    images_list = os.listdir(images_path)
-
-    write_dir = 'submission_results'
+    images_list = os.listdir(TEST_IMAGES_PATH)
+    now = datetime.strftime(datetime.now(), '%d.%m.%y %H:%M:%S')
+    write_dir = f'submission_results/{now}'
     if not os.path.exists(write_dir):
         os.makedirs(write_dir)
 
