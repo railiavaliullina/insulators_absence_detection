@@ -5,11 +5,17 @@ import numpy as np
 import pandas as pd
 
 from datetime import datetime
+from collections import Counter
 
+ETALON_CSV_PATH = 'datasets/innopolis-high-voltage-challenge/sample_submission_1.csv'
 TEST_IMAGES_PATH = 'datasets/innopolis-high-voltage-challenge'
 PREDICTIONS_PATH = 'training_results/train/predictions.json'
-CONF_THR = 0.05
+CONF_THR = 0.01
 
+
+def get_most_confident_bbox(img_to_bboxes, img_name):
+    yield img_to_bboxes[img_name]
+    a=1
 
 def draw_from_json():
     f = open(PREDICTIONS_PATH)
@@ -29,44 +35,51 @@ def draw_from_json():
         #     img_name = elem['image_id']  # + '.JPG'
         img_to_bboxes[img_name].append({'bbox': elem['bbox'], 'score': elem['score']})
 
-    i = 0
+    img_to_bboxes = dict(sorted(img_to_bboxes.items()))
+    etalon_df_filenames = etalon_df.file_name.to_list()
+    etalon_img_to_num_boxes = Counter([img_name[:-2] for img_name in etalon_df_filenames]).most_common()
+    etalon_img_to_num_boxes = dict(sorted(dict(etalon_img_to_num_boxes).items()))
     df_file_name, df_x, df_y, df_w, df_h, df_probability = [], [], [], [], [], []
-    for k, v in img_to_bboxes.items():
-        if v:
-            img_full_name = os.path.join(TEST_IMAGES_PATH, k)
-            img = cv2.imread(img_full_name)
-            img_h, img_w, _ = img.shape
-            box_num = 1
-            for elem in v:
-                score = elem['score']
+    for etalon_filename, num_boxes in etalon_img_to_num_boxes.items():
+        im_name = etalon_filename + '.JPG'
+        im_boxes = img_to_bboxes[im_name]
+        im_full_name = os.path.join(TEST_IMAGES_PATH, im_name)
+        im = cv2.imread(im_full_name)
+        im_h, im_w, _ = im.shape
+
+        box_num = 1
+        while box_num < num_boxes + 1:
+            for bbox in im_boxes:
+                score = bbox['score']
                 if score >= CONF_THR:
-                    x1, y1, w, h = tuple(elem['bbox'])
+                    x1, y1, w, h = tuple(bbox['bbox'])
                     x2, y2 = x1 + w, y1 + h
 
-                    df_file_name.append(k[:-4] + f'_{box_num}')
-                    df_x.append(x1 / img_w)
-                    df_y.append(y1 / img_h)
-                    df_w.append(w / img_w)
-                    df_h.append(h / img_h)
+                    df_file_name.append(im_name[:-4] + f'_{box_num}')
+                    df_x.append(x1 / im_w)
+                    df_y.append(y1 / im_h)
+                    df_w.append(w / im_w)
+                    df_h.append(h / im_h)
                     df_probability.append(score)
-                    box_num += 1
 
                     x1, y1, x2, y2 = int(round(x1)), int(round(y1)), int(round(x2)), int(round(y2))
-                    cv2.rectangle(img, (x1, y1), (x2, y2), color=(0, 0, 255), thickness=2)
+                    cv2.rectangle(im, (x1, y1), (x2, y2), color=(0, 0, 255), thickness=2)
 
-            cv2.imwrite(os.path.join(write_dir, f"{k[:-4]}__{i}.png"), img)
-            i += 1
+                    bbox['score'] = 0
+                    box_num += 1
+                if box_num > num_boxes:
+                    break
+
+        cv2.imwrite(os.path.join(write_dir, f"{im_name[:-4]}.png"), im)
 
     df = pd.DataFrame()
-
-    sorted_ids = np.argsort(df_file_name)
-    df['file_name'] = np.asarray(df_file_name)[sorted_ids]
-    df['x'] = np.asarray(df_x)[sorted_ids]
-    df['y'] = np.asarray(df_y)[sorted_ids]
-    df['w'] = np.asarray(df_w)[sorted_ids]
-    df['h'] = np.asarray(df_h)[sorted_ids]
-    df['probability'] = np.asarray(df_probability)[sorted_ids]
-    df.to_csv(os.path.join(write_dir, 'tweet_tweet_submission_v1.csv'), index=False)
+    df['file_name'] = df_file_name
+    df['x'] = df_x
+    df['y'] = df_y
+    df['w'] = df_w
+    df['h'] = df_h
+    df['probability'] = df_probability
+    df.to_csv(os.path.join(write_dir, f'tweet_tweet_submission_{now}.csv'), index=False)
 
 
 def draw_from_csv():
@@ -95,7 +108,9 @@ def draw_from_csv():
 
 if __name__ == '__main__':
     images_list = os.listdir(TEST_IMAGES_PATH)
-    now = datetime.strftime(datetime.now(), '%d.%m.%y %H:%M:%S')
+    etalon_df = pd.read_csv(ETALON_CSV_PATH)
+
+    now = datetime.strftime(datetime.now(), '%d%m%y_%H%M%S')
     write_dir = f'submission_results/{now}'
     if not os.path.exists(write_dir):
         os.makedirs(write_dir)
