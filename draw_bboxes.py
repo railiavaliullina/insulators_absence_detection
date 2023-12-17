@@ -9,8 +9,8 @@ from collections import Counter
 
 ETALON_CSV_PATH = 'datasets/innopolis-high-voltage-challenge/sample_submission_1.csv'
 TEST_IMAGES_PATH = 'datasets/innopolis-high-voltage-challenge'
-PREDICTIONS_PATH = 'training_results/train/predictions.json'
-CONF_THR = 0.01
+PREDICTIONS_PATH = 'training_results/train_100_ep/predictions.json'
+CONF_THR = 0.5
 
 
 def get_most_confident_bbox(img_to_bboxes, img_name):
@@ -51,22 +51,26 @@ def draw_from_json():
         while box_num < num_boxes + 1:
             for bbox in im_boxes:
                 score = bbox['score']
-                if score >= CONF_THR:
-                    x1, y1, w, h = tuple(bbox['bbox'])
-                    x2, y2 = x1 + w, y1 + h
+                # if score >= CONF_THR:
+                x1, y1, w, h = tuple(bbox['bbox'])
+                x_c, y_c = x1 + w/2, y1 + h/2
+                x2, y2 = x1 + w, y1 + h
+                # x1 = x1 + w/2
+                # y1 = y1 + h/2
+                # x2, y2 = w/2, h/2
 
-                    df_file_name.append(im_name[:-4] + f'_{box_num}')
-                    df_x.append(x1 / im_w)
-                    df_y.append(y1 / im_h)
-                    df_w.append(w / im_w)
-                    df_h.append(h / im_h)
-                    df_probability.append(score)
+                df_file_name.append(im_name[:-4] + f'_{box_num}')
+                df_x.append(x1 / im_w)
+                df_y.append(y1 / im_h)
+                df_w.append(w / im_w)
+                df_h.append(h / im_h)
+                df_probability.append(score)
 
-                    x1, y1, x2, y2 = int(round(x1)), int(round(y1)), int(round(x2)), int(round(y2))
-                    cv2.rectangle(im, (x1, y1), (x2, y2), color=(0, 0, 255), thickness=2)
+                x1, y1, x2, y2 = int(round(x1)), int(round(y1)), int(round(x2)), int(round(y2))
+                cv2.rectangle(im, (x1, y1), (x2, y2), color=(0, 0, 255), thickness=2)
 
-                    bbox['score'] = 0
-                    box_num += 1
+                bbox['score'] = 0
+                box_num += 1
                 if box_num > num_boxes:
                     break
 
@@ -79,7 +83,7 @@ def draw_from_json():
     df['w'] = df_w
     df['h'] = df_h
     df['probability'] = df_probability
-    df.to_csv(os.path.join(write_dir, f'tweet_tweet_submission_{now}.csv'), index=False)
+    df.to_csv(os.path.join(write_dir, f'tweet_tweet_submission_{now}.csv'), index=False, float_format='%.16f')
 
 
 def draw_from_csv():
