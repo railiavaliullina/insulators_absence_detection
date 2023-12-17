@@ -1,7 +1,6 @@
 import os
 import cv2
 import json
-import numpy as np
 import pandas as pd
 
 from datetime import datetime
@@ -12,10 +11,6 @@ TEST_IMAGES_PATH = 'datasets/innopolis-high-voltage-challenge'
 PREDICTIONS_PATH = 'training_results/train_100_ep/predictions.json'
 CONF_THR = 0.5
 
-
-def get_most_confident_bbox(img_to_bboxes, img_name):
-    yield img_to_bboxes[img_name]
-    a=1
 
 def draw_from_json():
     f = open(PREDICTIONS_PATH)
