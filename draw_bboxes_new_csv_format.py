@@ -6,15 +6,15 @@ import numpy as np
 
 from datetime import datetime
 
-ETALON_CSV_PATH = 'datasets/innopolis-high-voltage-challenge/download_submission.csv'
+ETALON_CSV_PATH = 'example_submission.csv'
 TEST_IMAGES_PATH = 'datasets/innopolis-high-voltage-challenge'
-PREDICTIONS_PATH = 'training_results/train_aug/predictions.json'
+PREDICTIONS_PATH = 'training_results/train_new_labels/predictions.json'
 # CONF_THR = 0.05  # 0.37787
 # CONF_THR = 0.01  # 0.37642
 # CONF_THR = 0.1  # 0.38025
 # CONF_THR = 0.5  # 0.38025
 
-CONF_THR = 0.005
+CONF_THR = 0.1
 
 
 def draw_from_json():
@@ -59,29 +59,26 @@ def draw_from_json():
 
     df = pd.DataFrame()
     df['file_name'] = list(df_dict.keys())
-    df_x, df_y, df_w, df_h, df_probability = [], [], [], [], []
+    # df_x, df_y, df_w, df_h, df_probability = [], [], [], [], []
+    df_rbbox, df_probability = [], []
     for filename in df_dict:
         if len(df_dict[filename]) > 1:
             df_dict[filename] = np.asarray(df_dict[filename])
-            x = ', '.join([str(el) for el in df_dict[filename][:, 0]])
-            y = ', '.join([str(el) for el in df_dict[filename][:, 1]])
-            w = ', '.join([str(el) for el in df_dict[filename][:, 2]])
-            h = ', '.join([str(el) for el in df_dict[filename][:, 3]])
-            score = ', '.join([str(el) for el in df_dict[filename][:, 4]])
+            rbbox = df_dict[filename][:, :-1]
+            score = df_dict[filename][:, -1]
         else:
             try:
-                x, y, w, h, score = df_dict[filename][0]
+                rbbox = df_dict[filename][0][:-1]
+                score = [df_dict[filename][0][-1]]
             except IndexError:
-                x, y, w, h, score = 0.0, 0.0, 0.0, 0.0, 0.0
-        df_x.append(x)
-        df_y.append(y)
-        df_w.append(w)
-        df_h.append(h)
+                rbbox = [0.0, 0.0, 0.0, 0.0]
+                score = [0.0]
+
+        rbbox = str(list(rbbox)).replace('array(', '').replace('),', ',').replace('])', ']')
+        score = str(list(score)) if len(list(score)) > 1 else str(list(score))
+        df_rbbox.append(rbbox)
         df_probability.append(score)
-    df['x'] = df_x
-    df['y'] = df_y
-    df['w'] = df_w
-    df['h'] = df_h
+    df['rbbox'] = df_rbbox
     df['probability'] = df_probability
     df.to_csv(os.path.join(write_dir, f'tweet_tweet_submission_{now}.csv'), index=False, float_format='%.16f')
 

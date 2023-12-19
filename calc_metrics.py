@@ -1,13 +1,14 @@
 import os
 import cv2
 import torch
+import numpy as np
 import pandas as pd
 from pprint import pprint
 from torchmetrics.detection.mean_ap import MeanAveragePrecision
 
 
 def get_gt():
-    gt_boxes_path = '/Users/railiavaliullina/Documents/GitHub/insulators_absence_detection/datasets/4.v1i.yolov8/' \
+    gt_boxes_path = '/Users/railiavaliullina/Documents/GitHub/insulators_absence_detection/datasets/valid.v2i.yolov8/' \
                     'valid/labels'
     gt_list = [filename.split('_jpg')[0].replace('_JPG', '') if '_jpg' in filename
                else filename.split('.rf')[0].replace('_JPG', '') for filename in os.listdir(gt_boxes_path)]
@@ -20,7 +21,7 @@ def get_gt():
         for label in labels:
             x, y, w, h = tuple(label.split()[1:])
             x, y, w, h = float(x), float(y), float(w), float(h)
-            gts[filename].append([x, y, w, h])
+            gts[filename].append([x - w/2, y - h/2, w, h])
     return gts
 
 
@@ -124,9 +125,25 @@ def get_map():
             pprint(metric.compute())
 
 
+def save_to_csv(gts):
+    df = pd.DataFrame()
+    filename, rbbox, probability = [], [], []
+    for k, v in gts.items():
+        filename.append(k)
+
+        rbbox.append(str(v))
+        probability.append(str([1.0 for _ in range(len(v))]))
+    ids = np.argsort(filename)
+    df['file_name'] = np.asarray(filename)[ids]
+    df['rbbox'] = np.asarray(rbbox)[ids]
+    df['probability'] = np.asarray(probability)[ids]
+    df.to_csv(f'gts.csv', index=False, float_format='%.16f')
+
+
 if __name__ == '__main__':
     gts = get_gt()
-    preds = get_pred()
+    save_to_csv(gts)
+    # preds = get_pred()
 
-    draw_boxes()
-    get_map()
+    # draw_boxes()
+    # get_map()
