@@ -55,8 +55,8 @@ def draw_from_json():
                 # x2, y2 = w/2, h/2
 
                 df_file_name.append(im_name[:-4] + f'_{box_num}')
-                df_x.append(x1 / im_w)
-                df_y.append(y1 / im_h)
+                df_x.append(x_c / im_w)
+                df_y.append(y_c / im_h)
                 df_w.append(w / im_w)
                 df_h.append(h / im_h)
                 df_probability.append(score)

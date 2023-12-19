@@ -26,12 +26,24 @@ def get_gt():
 
 def get_pred():
     pred_boxes_path = '/Users/railiavaliullina/Documents/GitHub/insulators_absence_detection/submission_results/' \
-                      '171223_203406/tweet_tweet_submission_171223_203406.csv'
+                      '181223_191943/tweet_tweet_submission_181223_191943.csv'
     preds_df = pd.read_csv(pred_boxes_path)
-    preds = {filename[:-2]: [] for filename in preds_df.file_name.to_list()}
+    preds = {filename: [] for filename in preds_df.file_name.to_list()}
+    preds_scores = {filename: [] for filename in preds_df.file_name.to_list()}
     for _, row in preds_df.iterrows():
         filename, x, y, w, h, probability = row
-        preds[filename[:-2]].append([x, y, w, h])
+        if len(x.split(',')) > 1:
+            xs = x.split(',')
+            ys = y.split(',')
+            ws = w.split(',')
+            hs = h.split(',')
+            scores = probability.split(',')
+            for i in range(len(xs)):
+                preds[filename].append([float(xs[i]), float(ys[i]), float(ws[i]), float(hs[i])])
+                preds_scores[filename].append(float(scores[i]))
+        else:
+            preds[filename].append([float(x), float(y), float(w), float(h)])
+            preds_scores[filename].append(float(probability))
     return preds
 
 
@@ -58,7 +70,8 @@ def draw_pred(filename, im, im_w, im_h):
         for box in preds[filename]:
             x_c, y_c, w, h = tuple(box)
             x_c, y_c, w, h = scale_values(x_c, y_c, w, h, im_w, im_h)
-            x1, y1, x2, y2 = x_c - w / 2, y_c - h / 2, x_c + w / 2, y_c + h / 2
+            # x1, y1, x2, y2 = x_c - w / 2, y_c - h / 2, x_c + w / 2, y_c + h / 2
+            x1, y1, x2, y2 = x_c, y_c, x_c + w, y_c + h  # TODO
             x1, y1, x2, y2 = round_values([x1, y1, x2, y2])
             cv2.rectangle(im, (x1, y1), (x2, y2), color=(0, 0, 255), thickness=2)
     return im
@@ -73,10 +86,11 @@ def draw_boxes():
             im_h, im_w, _ = im.shape
             im = draw_gt(filename, im, im_w, im_h)
             im = draw_pred(filename, im, im_w, im_h)
-            cv2.imwrite(f'{filename}_GT_PRED.png', im)
+            cv2.imwrite(f'drawed_boxes/{filename}_GT_PRED.png', im)
 
 
 def get_map():
+    im_w, im_h = 4000, 2250
     for filename in gts:
         if filename in preds:
             gt_boxes = gts[filename]
@@ -84,14 +98,18 @@ def get_map():
 
             gt_boxes_ = []
             for bb in gt_boxes:
-                x1, y1, w, h = bb
-                x2, y2 = x1 + w, y1 + h
+                x_c, y_c, w, h = bb
+                x_c, y_c, w, h = scale_values(x_c, y_c, w, h, im_w, im_h)
+                x1, y1, x2, y2 = x_c - w / 2, y_c - h / 2, x_c + w / 2, y_c + h / 2
+                # x1, y1, x2, y2 = round_values([x1, y1, x2, y2])
                 gt_boxes_.append([x1, y1, x2, y2])
 
             pred_boxes_ = []
             for bb in pred_boxes:
-                x1, y1, w, h = bb
-                x2, y2 = x1 + w, y1 + h
+                x_c, y_c, w, h = bb
+                x_c, y_c, w, h = scale_values(x_c, y_c, w, h, im_w, im_h)
+                # x1, y1, x2, y2 = x_c - w / 2, y_c - h / 2, x_c + w / 2, y_c + h / 2
+                x1, y1, x2, y2 = x_c, y_c, x_c + w, y_c + h  # TODO
                 pred_boxes_.append([x1, y1, x2, y2])
 
             pred = [dict(boxes=torch.tensor(pred_boxes_), scores=torch.tensor([1.0 for _ in range(len(pred_boxes_))]),
